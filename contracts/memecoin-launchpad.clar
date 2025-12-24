@@ -293,6 +293,7 @@
     (
       (launch (unwrap! (map-get? launches launch-id) err-not-found))
       (contribution (unwrap! (map-get? user-contributions {launch-id: launch-id, user: tx-sender}) err-not-found))
+      (refund-address tx-sender)
     )
     
     ;; Validations
@@ -301,7 +302,7 @@
     (asserts! (not (get claimed contribution)) err-already-claimed)
     
     ;; Refund STX
-    (try! (as-contract (stx-transfer? (get stx-contributed contribution) tx-sender tx-sender)))
+    (try! (as-contract (stx-transfer? (get stx-contributed contribution) tx-sender refund-address)))
     
     ;; Mark as claimed (refunded)
     (map-set user-contributions

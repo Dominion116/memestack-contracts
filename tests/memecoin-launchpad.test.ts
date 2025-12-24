@@ -1,14 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { Cl } from "@stacks/transactions";
 
-const accounts = simnet.getAccounts();
-const deployer = accounts.get("deployer")!;
-const wallet1 = accounts.get("wallet_1")!;
-const wallet2 = accounts.get("wallet_2")!;
-const wallet3 = accounts.get("wallet_3")!;
-
 describe("Memecoin Launchpad Tests", () => {
   it("creates launch successfully", () => {
+    const accounts = simnet.getAccounts();
+    const wallet1 = accounts.get("wallet_1")!;
+    
     const { result } = simnet.callPublicFn(
       "memecoin-launchpad",
       "create-launch",
@@ -41,6 +38,10 @@ describe("Memecoin Launchpad Tests", () => {
   });
 
   it("buys tokens successfully", () => {
+    const accounts = simnet.getAccounts();
+    const wallet1 = accounts.get("wallet_1")!;
+    const wallet2 = accounts.get("wallet_2")!;
+    
     // Create launch
     simnet.callPublicFn(
       "memecoin-launchpad",
@@ -88,6 +89,10 @@ describe("Memecoin Launchpad Tests", () => {
   });
 
   it("enforces minimum purchase", () => {
+    const accounts = simnet.getAccounts();
+    const wallet1 = accounts.get("wallet_1")!;
+    const wallet2 = accounts.get("wallet_2")!;
+    
     // Create launch with min 2 STX
     simnet.callPublicFn(
       "memecoin-launchpad",
@@ -113,7 +118,7 @@ describe("Memecoin Launchpad Tests", () => {
     const { result } = simnet.callPublicFn(
       "memecoin-launchpad",
       "buy-tokens",
-      [Cl.uint(2), Cl.uint(1000000)],
+      [Cl.uint(1), Cl.uint(1000000)],
       wallet2
     );
     
@@ -121,6 +126,10 @@ describe("Memecoin Launchpad Tests", () => {
   });
 
   it("enforces maximum purchase per wallet", () => {
+    const accounts = simnet.getAccounts();
+    const wallet1 = accounts.get("wallet_1")!;
+    const wallet2 = accounts.get("wallet_2")!;
+    
     // Create launch with max 5 STX
     simnet.callPublicFn(
       "memecoin-launchpad",
@@ -146,7 +155,7 @@ describe("Memecoin Launchpad Tests", () => {
     simnet.callPublicFn(
       "memecoin-launchpad",
       "buy-tokens",
-      [Cl.uint(3), Cl.uint(5000000)],
+      [Cl.uint(1), Cl.uint(5000000)],
       wallet2
     );
     
@@ -154,7 +163,7 @@ describe("Memecoin Launchpad Tests", () => {
     const { result } = simnet.callPublicFn(
       "memecoin-launchpad",
       "buy-tokens",
-      [Cl.uint(3), Cl.uint(1000000)],
+      [Cl.uint(1), Cl.uint(1000000)],
       wallet2
     );
     
@@ -162,6 +171,11 @@ describe("Memecoin Launchpad Tests", () => {
   });
 
   it("finalizes successful launch", () => {
+    const accounts = simnet.getAccounts();
+    const wallet1 = accounts.get("wallet_1")!;
+    const wallet2 = accounts.get("wallet_2")!;
+    const wallet3 = accounts.get("wallet_3")!;
+    
     // Create launch
     simnet.callPublicFn(
       "memecoin-launchpad",
@@ -187,14 +201,14 @@ describe("Memecoin Launchpad Tests", () => {
     simnet.callPublicFn(
       "memecoin-launchpad",
       "buy-tokens",
-      [Cl.uint(4), Cl.uint(30000000)],
+      [Cl.uint(1), Cl.uint(30000000)],
       wallet2
     );
     
     simnet.callPublicFn(
       "memecoin-launchpad",
       "buy-tokens",
-      [Cl.uint(4), Cl.uint(25000000)],
+      [Cl.uint(1), Cl.uint(25000000)],
       wallet3
     );
     
@@ -205,7 +219,7 @@ describe("Memecoin Launchpad Tests", () => {
     const { result } = simnet.callPublicFn(
       "memecoin-launchpad",
       "finalize-launch",
-      [Cl.uint(4)],
+      [Cl.uint(1)],
       wallet1
     );
     
@@ -215,7 +229,7 @@ describe("Memecoin Launchpad Tests", () => {
     const stats = simnet.callReadOnlyFn(
       "memecoin-launchpad",
       "get-launch-stats",
-      [Cl.uint(4)],
+      [Cl.uint(1)],
       wallet1
     );
     
@@ -230,6 +244,10 @@ describe("Memecoin Launchpad Tests", () => {
   });
 
   it("allows claiming tokens after successful launch", () => {
+    const accounts = simnet.getAccounts();
+    const wallet1 = accounts.get("wallet_1")!;
+    const wallet2 = accounts.get("wallet_2")!;
+    
     // Create and complete launch
     simnet.callPublicFn(
       "memecoin-launchpad",
@@ -249,12 +267,12 @@ describe("Memecoin Launchpad Tests", () => {
       wallet1
     );
     
-    simnet.mineEmptyBlocks(10);
+    simnet.mineEmptyBlocks(15);
     
     simnet.callPublicFn(
       "memecoin-launchpad",
       "buy-tokens",
-      [Cl.uint(5), Cl.uint(50000000)],
+      [Cl.uint(1), Cl.uint(50000000)],
       wallet2
     );
     
@@ -263,7 +281,7 @@ describe("Memecoin Launchpad Tests", () => {
     simnet.callPublicFn(
       "memecoin-launchpad",
       "finalize-launch",
-      [Cl.uint(5)],
+      [Cl.uint(1)],
       wallet1
     );
     
@@ -271,7 +289,7 @@ describe("Memecoin Launchpad Tests", () => {
     const { result } = simnet.callPublicFn(
       "memecoin-launchpad",
       "claim-tokens",
-      [Cl.uint(5)],
+      [Cl.uint(1)],
       wallet2
     );
     
@@ -281,7 +299,7 @@ describe("Memecoin Launchpad Tests", () => {
     const contribution = simnet.callReadOnlyFn(
       "memecoin-launchpad",
       "get-user-contribution",
-      [Cl.uint(5), Cl.principal(wallet2)],
+      [Cl.uint(1), Cl.principal(wallet2)],
       wallet2
     );
     
@@ -289,6 +307,10 @@ describe("Memecoin Launchpad Tests", () => {
   });
 
   it("processes refund on failed launch", () => {
+    const accounts = simnet.getAccounts();
+    const wallet1 = accounts.get("wallet_1")!;
+    const wallet2 = accounts.get("wallet_2")!;
+    
     // Create launch with high soft-cap
     simnet.callPublicFn(
       "memecoin-launchpad",
@@ -314,7 +336,7 @@ describe("Memecoin Launchpad Tests", () => {
     simnet.callPublicFn(
       "memecoin-launchpad",
       "buy-tokens",
-      [Cl.uint(6), Cl.uint(30000000)],
+      [Cl.uint(1), Cl.uint(30000000)],
       wallet2
     );
     
@@ -324,7 +346,7 @@ describe("Memecoin Launchpad Tests", () => {
     simnet.callPublicFn(
       "memecoin-launchpad",
       "finalize-launch",
-      [Cl.uint(6)],
+      [Cl.uint(1)],
       wallet1
     );
     
@@ -332,7 +354,7 @@ describe("Memecoin Launchpad Tests", () => {
     const { result } = simnet.callPublicFn(
       "memecoin-launchpad",
       "request-refund",
-      [Cl.uint(6)],
+      [Cl.uint(1)],
       wallet2
     );
     
