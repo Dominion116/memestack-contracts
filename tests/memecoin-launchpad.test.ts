@@ -247,6 +247,7 @@ describe("Memecoin Launchpad Tests", () => {
     const accounts = simnet.getAccounts();
     const wallet1 = accounts.get("wallet_1")!;
     const wallet2 = accounts.get("wallet_2")!;
+    const wallet3 = accounts.get("wallet_3")!;
     
     // Create and complete launch
     simnet.callPublicFn(
@@ -267,13 +268,22 @@ describe("Memecoin Launchpad Tests", () => {
       wallet1
     );
     
-    simnet.mineEmptyBlocks(15);
+    simnet.mineEmptyBlocks(101);
     
+    // Buy tokens from wallet2 (30 STX)
     simnet.callPublicFn(
       "memecoin-launchpad",
       "buy-tokens",
-      [Cl.uint(1), Cl.uint(50000000)],
+      [Cl.uint(1), Cl.uint(30000000)],
       wallet2
+    );
+    
+    // Buy tokens from wallet3 (25 STX) - total 55 STX > soft cap
+    simnet.callPublicFn(
+      "memecoin-launchpad",
+      "buy-tokens",
+      [Cl.uint(1), Cl.uint(25000000)],
+      wallet3
     );
     
     simnet.mineEmptyBlocks(100);
@@ -285,7 +295,7 @@ describe("Memecoin Launchpad Tests", () => {
       wallet1
     );
     
-    // Claim tokens
+    // Claim tokens for wallet2 (bought 30 STX)
     const { result } = simnet.callPublicFn(
       "memecoin-launchpad",
       "claim-tokens",
@@ -293,7 +303,8 @@ describe("Memecoin Launchpad Tests", () => {
       wallet2
     );
     
-    expect(result).toBeOk(Cl.uint(500000000000));
+    // Expected tokens: 30 STX * 1000000 / 100 price = 300,000,000,000 tokens
+    expect(result).toBeOk(Cl.uint(300000000000));
     
     // Verify claimed status
     const contribution = simnet.callReadOnlyFn(

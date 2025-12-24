@@ -131,7 +131,7 @@
     (
       (launch-id (+ (var-get launch-counter) u1))
       (start-block (+ block-height u10))
-      (end-block (+ block-height duration-blocks))
+      (end-block (+ (+ block-height u10) duration-blocks))
     )
     ;; Validate inputs
     (asserts! (> total-supply u0) err-insufficient-amount)
