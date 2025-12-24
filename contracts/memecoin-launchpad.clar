@@ -1,5 +1,5 @@
-;; Memecoin Launchpad Core Contract
-;; Allows users to launch memecoins with STX as the base token
+;; Memecoin Launchpad Core Contract v2
+;; Integrated with Token Factory
 
 ;; Constants
 (define-constant contract-owner tx-sender)
@@ -14,6 +14,9 @@
 (define-constant err-launch-ended (err u108))
 (define-constant err-launch-not-ended (err u109))
 (define-constant err-unauthorized (err u110))
+(define-constant err-soft-cap-not-met (err u111))
+(define-constant err-already-claimed (err u112))
+(define-constant err-no-refund (err u113))
 
 ;; Platform fee (2% in basis points)
 (define-constant platform-fee-bps u200)
@@ -22,6 +25,7 @@
 ;; Data Variables
 (define-data-var launch-counter uint u0)
 (define-data-var platform-fee-address principal contract-owner)
+(define-data-var token-factory-contract (optional principal) none)
 
 ;; Data Maps
 (define-map launches
@@ -42,6 +46,7 @@
     total-raised: uint,
     tokens-sold: uint,
     is-finalized: bool,
+    is-successful: bool,
     token-contract: (optional principal)
   }
 )
@@ -89,6 +94,24 @@
   )
 )
 
+(define-read-only (get-launch-stats (launch-id uint))
+  (match (map-get? launches launch-id)
+    launch
+    (ok {
+      total-raised: (get total-raised launch),
+      tokens-sold: (get tokens-sold launch),
+      progress-bps: (if (> (get hard-cap launch) u0)
+        (/ (* (get total-raised launch) u10000) (get hard-cap launch))
+        u0
+      ),
+      is-active: (is-launch-active launch-id),
+      is-finalized: (get is-finalized launch),
+      is-successful: (get is-successful launch)
+    })
+    err-not-found
+  )
+)
+
 ;; Public functions
 
 ;; Create a new token launch
@@ -107,7 +130,7 @@
   (let
     (
       (launch-id (+ (var-get launch-counter) u1))
-      (start-block (+ block-height u10)) ;; Start after 10 blocks
+      (start-block (+ block-height u10))
       (end-block (+ block-height duration-blocks))
     )
     ;; Validate inputs
@@ -116,6 +139,7 @@
     (asserts! (> hard-cap soft-cap) err-insufficient-amount)
     (asserts! (<= max-purchase hard-cap) err-max-purchase)
     (asserts! (< min-purchase max-purchase) err-min-purchase)
+    (asserts! (> duration-blocks u10) err-insufficient-amount)
     
     ;; Create launch
     (map-set launches launch-id
@@ -135,11 +159,13 @@
         total-raised: u0,
         tokens-sold: u0,
         is-finalized: false,
+        is-successful: false,
         token-contract: none
       }
     )
     
     (var-set launch-counter launch-id)
+    (print {event: "launch-created", launch-id: launch-id, creator: tx-sender})
     (ok launch-id)
   )
 )
@@ -157,8 +183,6 @@
       (new-total-contribution (+ (get stx-contributed current-contribution) stx-amount))
       (new-total-raised (+ (get total-raised launch) stx-amount))
       (new-tokens-sold (+ (get tokens-sold launch) tokens-to-receive))
-      (platform-fee (/ (* stx-amount platform-fee-bps) bps-base))
-      (creator-amount (- stx-amount platform-fee))
     )
     
     ;; Validations
@@ -168,9 +192,8 @@
     (asserts! (<= new-total-raised (get hard-cap launch)) err-max-supply-reached)
     (asserts! (<= new-tokens-sold (get total-supply launch)) err-max-supply-reached)
     
-    ;; Transfer STX (platform fee + creator amount)
-    (try! (stx-transfer? platform-fee tx-sender (var-get platform-fee-address)))
-    (try! (stx-transfer? creator-amount tx-sender (get creator launch)))
+    ;; Transfer STX to contract (held until finalization)
+    (try! (stx-transfer? stx-amount tx-sender (as-contract tx-sender)))
     
     ;; Update user contribution
     (map-set user-contributions
@@ -190,19 +213,20 @@
       })
     )
     
+    (print {event: "tokens-purchased", launch-id: launch-id, buyer: tx-sender, amount: stx-amount})
     (ok {tokens: tokens-to-receive, stx-spent: stx-amount})
   )
 )
 
-;; Finalize launch (can be called by creator after end-block or when hard-cap reached)
+;; Finalize launch
 (define-public (finalize-launch (launch-id uint))
   (let
     (
       (launch (unwrap! (map-get? launches launch-id) err-not-found))
+      (met-soft-cap (>= (get total-raised launch) (get soft-cap launch)))
+      (platform-fee (/ (* (get total-raised launch) platform-fee-bps) bps-base))
+      (creator-amount (- (get total-raised launch) platform-fee))
     )
-    
-    ;; Only creator can finalize
-    (asserts! (is-eq tx-sender (get creator launch)) err-unauthorized)
     
     ;; Check if launch can be finalized
     (asserts! 
@@ -215,16 +239,103 @@
     
     (asserts! (not (get is-finalized launch)) err-already-launched)
     
+    ;; If successful, distribute STX
+    (if met-soft-cap
+      (begin
+        ;; Transfer platform fee
+        (try! (as-contract (stx-transfer? platform-fee tx-sender (var-get platform-fee-address))))
+        ;; Transfer to creator
+        (try! (as-contract (stx-transfer? creator-amount tx-sender (get creator launch))))
+      )
+      true
+    )
+    
     ;; Mark as finalized
     (map-set launches launch-id
-      (merge launch {is-finalized: true})
+      (merge launch {
+        is-finalized: true,
+        is-successful: met-soft-cap
+      })
+    )
+    
+    (print {event: "launch-finalized", launch-id: launch-id, successful: met-soft-cap})
+    (ok met-soft-cap)
+  )
+)
+
+;; Claim tokens (if launch successful)
+(define-public (claim-tokens (launch-id uint))
+  (let
+    (
+      (launch (unwrap! (map-get? launches launch-id) err-not-found))
+      (contribution (unwrap! (map-get? user-contributions {launch-id: launch-id, user: tx-sender}) err-not-found))
+    )
+    
+    ;; Validations
+    (asserts! (get is-finalized launch) err-launch-not-ended)
+    (asserts! (get is-successful launch) err-soft-cap-not-met)
+    (asserts! (not (get claimed contribution)) err-already-claimed)
+    
+    ;; Mark as claimed
+    (map-set user-contributions
+      {launch-id: launch-id, user: tx-sender}
+      (merge contribution {claimed: true})
+    )
+    
+    (print {event: "tokens-claimed", launch-id: launch-id, user: tx-sender, amount: (get tokens-allocated contribution)})
+    (ok (get tokens-allocated contribution))
+  )
+)
+
+;; Request refund (if launch failed)
+(define-public (request-refund (launch-id uint))
+  (let
+    (
+      (launch (unwrap! (map-get? launches launch-id) err-not-found))
+      (contribution (unwrap! (map-get? user-contributions {launch-id: launch-id, user: tx-sender}) err-not-found))
+    )
+    
+    ;; Validations
+    (asserts! (get is-finalized launch) err-launch-not-ended)
+    (asserts! (not (get is-successful launch)) err-no-refund)
+    (asserts! (not (get claimed contribution)) err-already-claimed)
+    
+    ;; Refund STX
+    (try! (as-contract (stx-transfer? (get stx-contributed contribution) tx-sender tx-sender)))
+    
+    ;; Mark as claimed (refunded)
+    (map-set user-contributions
+      {launch-id: launch-id, user: tx-sender}
+      (merge contribution {claimed: true})
+    )
+    
+    (print {event: "refund-processed", launch-id: launch-id, user: tx-sender, amount: (get stx-contributed contribution)})
+    (ok (get stx-contributed contribution))
+  )
+)
+
+;; Link deployed token contract
+(define-public (link-token-contract (launch-id uint) (token-contract principal))
+  (let
+    (
+      (launch (unwrap! (map-get? launches launch-id) err-not-found))
+    )
+    
+    ;; Only creator or contract owner can link
+    (asserts! 
+      (or (is-eq tx-sender (get creator launch)) (is-eq tx-sender contract-owner))
+      err-unauthorized
+    )
+    
+    (map-set launches launch-id
+      (merge launch {token-contract: (some token-contract)})
     )
     
     (ok true)
   )
 )
 
-;; Admin: Update platform fee address
+;; Admin functions
 (define-public (set-platform-fee-address (new-address principal))
   (begin
     (asserts! (is-eq tx-sender contract-owner) err-owner-only)
@@ -233,17 +344,10 @@
   )
 )
 
-;; Get launch statistics
-(define-read-only (get-launch-stats (launch-id uint))
-  (match (map-get? launches launch-id)
-    launch
-    (ok {
-      total-raised: (get total-raised launch),
-      tokens-sold: (get tokens-sold launch),
-      progress-bps: (/ (* (get total-raised launch) u10000) (get hard-cap launch)),
-      is-active: (is-launch-active launch-id),
-      is-finalized: (get is-finalized launch)
-    })
-    err-not-found
+(define-public (set-token-factory (factory principal))
+  (begin
+    (asserts! (is-eq tx-sender contract-owner) err-owner-only)
+    (var-set token-factory-contract (some factory))
+    (ok true)
   )
 )
