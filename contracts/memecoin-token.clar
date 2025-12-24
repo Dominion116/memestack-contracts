@@ -1,7 +1,7 @@
 ;; SIP-010 Fungible Token Template for Memecoins
 ;; This template will be used by the factory to create new tokens
 
-(impl-trait 'SP3FBR2AGK5H9QBDH3EEN6DF8EK8JY7RX8QJ5SVTE.sip-010-trait-ft-standard.sip-010-trait)
+(impl-trait .sip-010-trait.sip-010-trait)
 
 ;; Constants
 (define-constant contract-owner tx-sender)
