@@ -17,15 +17,23 @@
 (define-constant err-soft-cap-not-met (err u111))
 (define-constant err-already-claimed (err u112))
 (define-constant err-no-refund (err u113))
+(define-constant err-calculation-overflow (err u114))
+(define-constant err-contract-paused (err u115))
 
 ;; Platform fee (2% in basis points)
 (define-constant platform-fee-bps u200)
 (define-constant bps-base u10000)
 
+;; Limits
+(define-constant max-hard-cap u10000000000000) ;; 10M STX
+(define-constant min-soft-cap u1000000) ;; 1 STX
+(define-constant max-stx-for-calculation u340282366920938463463374607) ;; Max safe for *1000000
+
 ;; Data Variables
 (define-data-var launch-counter uint u0)
 (define-data-var platform-fee-address principal contract-owner)
 (define-data-var token-factory-contract (optional principal) none)
+(define-data-var contract-paused bool false)
 
 ;; Data Maps
 (define-map launches
@@ -89,7 +97,14 @@
 (define-read-only (calculate-tokens-for-stx (launch-id uint) (stx-amount uint))
   (match (map-get? launches launch-id)
     launch
-    (ok (/ (* stx-amount u1000000) (get price-per-token launch)))
+    (let
+      (
+        (price (get price-per-token launch))
+      )
+      ;; Protect against overflow in multiplication
+      (asserts! (<= stx-amount max-stx-for-calculation) err-calculation-overflow)
+      (ok (/ (* stx-amount u1000000) price))
+    )
     err-not-found
   )
 )
@@ -136,7 +151,9 @@
     ;; Validate inputs
     (asserts! (> total-supply u0) err-insufficient-amount)
     (asserts! (> price-per-token u0) err-insufficient-amount)
+    (asserts! (>= soft-cap min-soft-cap) err-insufficient-amount)
     (asserts! (> hard-cap soft-cap) err-insufficient-amount)
+    (asserts! (<= hard-cap max-hard-cap) err-max-purchase)
     (asserts! (<= max-purchase hard-cap) err-max-purchase)
     (asserts! (< min-purchase max-purchase) err-min-purchase)
     (asserts! (> duration-blocks u10) err-insufficient-amount)
@@ -186,6 +203,7 @@
     )
     
     ;; Validations
+    (asserts! (not (var-get contract-paused)) err-contract-paused)
     (asserts! (is-launch-active launch-id) err-launch-not-active)
     (asserts! (>= stx-amount (get min-purchase launch)) err-min-purchase)
     (asserts! (<= new-total-contribution (get max-purchase launch)) err-max-purchase)
@@ -341,6 +359,15 @@
   (begin
     (asserts! (is-eq tx-sender contract-owner) err-owner-only)
     (var-set platform-fee-address new-address)
+    (ok true)
+  )
+)
+
+(define-public (pause-contract (paused bool))
+  (begin
+    (asserts! (is-eq tx-sender contract-owner) err-owner-only)
+    (var-set contract-paused paused)
+    (print {event: "contract-paused", paused: paused})
     (ok true)
   )
 )
