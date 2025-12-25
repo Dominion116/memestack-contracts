@@ -190,14 +190,14 @@ describe("Memestack Integration Tests", () => {
       const balanceAfter: bigint = simnet.getAssetsMap().get("STX")?.get(wallet2) || 0n;
       expect(balanceAfter).toBe(balanceBefore + 50000000n);
 
-      // Try to claim tokens - should fail since launch unsuccessful
+      // Try to claim tokens - should fail since already refunded (claimed status)
       const claimResult = simnet.callPublicFn(
         "memecoin-launchpad",
         "claim-tokens",
         [Cl.uint(1)],
         wallet2
       );
-      expect(claimResult.result).toBeErr(Cl.uint(111)); // err-launch-not-successful
+      expect(claimResult.result).toBeErr(Cl.uint(112)); // err-already-claimed (optimization: checks claimed first)
     });
   });
 

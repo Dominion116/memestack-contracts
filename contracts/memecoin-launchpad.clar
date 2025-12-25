@@ -1,8 +1,10 @@
-;; Memecoin Launchpad Core Contract v2
-;; Integrated with Token Factory
+;; Memestack Launchpad - Fair Launch Protocol
+;; The premier memecoin launchpad on Stacks
+;; Version 2.0 - Security Hardened & Gas Optimized
 
 ;; Constants
 (define-constant contract-owner tx-sender)
+(define-constant platform-name "memestack")
 (define-constant err-owner-only (err u100))
 (define-constant err-not-found (err u101))
 (define-constant err-already-launched (err u102))
@@ -182,7 +184,7 @@
     )
     
     (var-set launch-counter launch-id)
-    (print {event: "launch-created", launch-id: launch-id, creator: tx-sender})
+    (print {event: "launch-created", platform: "memestack", launch-id: launch-id, creator: tx-sender})
     (ok launch-id)
   )
 )
@@ -192,47 +194,65 @@
   (let
     (
       (launch (unwrap! (map-get? launches launch-id) err-not-found))
-      (tokens-to-receive (unwrap! (calculate-tokens-for-stx launch-id stx-amount) err-insufficient-amount))
+      ;; Cache frequently accessed values
+      (price (get price-per-token launch))
+      (min-purchase (get min-purchase launch))
+      (max-purchase (get max-purchase launch))
+      (hard-cap (get hard-cap launch))
+      (total-supply (get total-supply launch))
+      (total-raised (get total-raised launch))
+      (tokens-sold (get tokens-sold launch))
       (current-contribution (default-to 
         {stx-contributed: u0, tokens-allocated: u0, claimed: false}
         (map-get? user-contributions {launch-id: launch-id, user: tx-sender})
       ))
-      (new-total-contribution (+ (get stx-contributed current-contribution) stx-amount))
-      (new-total-raised (+ (get total-raised launch) stx-amount))
-      (new-tokens-sold (+ (get tokens-sold launch) tokens-to-receive))
+      (current-stx (get stx-contributed current-contribution))
+      (current-tokens (get tokens-allocated current-contribution))
     )
     
-    ;; Validations
+    ;; Fast-fail validations (cheapest first)
     (asserts! (not (var-get contract-paused)) err-contract-paused)
-    (asserts! (is-launch-active launch-id) err-launch-not-active)
-    (asserts! (>= stx-amount (get min-purchase launch)) err-min-purchase)
-    (asserts! (<= new-total-contribution (get max-purchase launch)) err-max-purchase)
-    (asserts! (<= new-total-raised (get hard-cap launch)) err-max-supply-reached)
-    (asserts! (<= new-tokens-sold (get total-supply launch)) err-max-supply-reached)
+    (asserts! (>= stx-amount min-purchase) err-min-purchase)
+    (asserts! (<= stx-amount max-stx-for-calculation) err-calculation-overflow)
     
-    ;; Transfer STX to contract (held until finalization)
-    (try! (stx-transfer? stx-amount tx-sender (as-contract tx-sender)))
+    ;; Calculate tokens inline (avoid redundant map-get)
+    (let
+      (
+        (tokens-to-receive (/ (* stx-amount u1000000) price))
+        (new-total-contribution (+ current-stx stx-amount))
+        (new-total-raised (+ total-raised stx-amount))
+        (new-tokens-sold (+ tokens-sold tokens-to-receive))
+      )
+      ;; Remaining validations
+      (asserts! (is-launch-active launch-id) err-launch-not-active)
+      (asserts! (<= new-total-contribution max-purchase) err-max-purchase)
+      (asserts! (<= new-total-raised hard-cap) err-max-supply-reached)
+      (asserts! (<= new-tokens-sold total-supply) err-max-supply-reached)
     
-    ;; Update user contribution
-    (map-set user-contributions
-      {launch-id: launch-id, user: tx-sender}
-      {
-        stx-contributed: new-total-contribution,
-        tokens-allocated: (+ (get tokens-allocated current-contribution) tokens-to-receive),
-        claimed: false
-      }
+      ;; Transfer STX to contract (held until finalization)
+      (try! (stx-transfer? stx-amount tx-sender (as-contract tx-sender)))
+      
+      ;; Update user contribution
+      (map-set user-contributions
+        {launch-id: launch-id, user: tx-sender}
+        {
+          stx-contributed: new-total-contribution,
+          tokens-allocated: (+ current-tokens tokens-to-receive),
+          claimed: false
+        }
+      )
+      
+      ;; Update launch data
+      (map-set launches launch-id
+        (merge launch {
+          total-raised: new-total-raised,
+          tokens-sold: new-tokens-sold
+        })
+      )
+      
+      (print {event: "tokens-purchased", platform: "memestack", launch-id: launch-id, buyer: tx-sender, amount: stx-amount})
+      (ok {tokens: tokens-to-receive, stx-spent: stx-amount})
     )
-    
-    ;; Update launch data
-    (map-set launches launch-id
-      (merge launch {
-        total-raised: new-total-raised,
-        tokens-sold: new-tokens-sold
-      })
-    )
-    
-    (print {event: "tokens-purchased", launch-id: launch-id, buyer: tx-sender, amount: stx-amount})
-    (ok {tokens: tokens-to-receive, stx-spent: stx-amount})
   )
 )
 
@@ -241,43 +261,54 @@
   (let
     (
       (launch (unwrap! (map-get? launches launch-id) err-not-found))
-      (met-soft-cap (>= (get total-raised launch) (get soft-cap launch)))
-      (platform-fee (/ (* (get total-raised launch) platform-fee-bps) bps-base))
-      (creator-amount (- (get total-raised launch) platform-fee))
+      (total-raised (get total-raised launch))
+      (is-finalized (get is-finalized launch))
+      (end-block (get end-block launch))
+      (hard-cap (get hard-cap launch))
+      (soft-cap (get soft-cap launch))
     )
+    ;; Fast-fail: check if already finalized first (cheapest check)
+    (asserts! (not is-finalized) err-already-launched)
     
     ;; Check if launch can be finalized
     (asserts! 
       (or 
-        (>= block-height (get end-block launch))
-        (>= (get total-raised launch) (get hard-cap launch))
+        (>= block-height end-block)
+        (>= total-raised hard-cap)
       )
       err-launch-not-ended
     )
     
-    (asserts! (not (get is-finalized launch)) err-already-launched)
-    
-    ;; If successful, distribute STX
-    (if met-soft-cap
-      (begin
-        ;; Transfer platform fee
-        (try! (as-contract (stx-transfer? platform-fee tx-sender (var-get platform-fee-address))))
-        ;; Transfer to creator
-        (try! (as-contract (stx-transfer? creator-amount tx-sender (get creator launch))))
+    (let
+      (
+        (met-soft-cap (>= total-raised soft-cap))
+        (platform-fee (/ (* total-raised platform-fee-bps) bps-base))
+        (creator-amount (- total-raised platform-fee))
       )
-      true
-    )
     
-    ;; Mark as finalized
-    (map-set launches launch-id
-      (merge launch {
-        is-finalized: true,
-        is-successful: met-soft-cap
-      })
-    )
     
-    (print {event: "launch-finalized", launch-id: launch-id, successful: met-soft-cap})
-    (ok met-soft-cap)
+      ;; If successful, distribute STX
+      (if met-soft-cap
+        (begin
+          ;; Transfer platform fee
+          (try! (as-contract (stx-transfer? platform-fee tx-sender (var-get platform-fee-address))))
+          ;; Transfer to creator
+          (try! (as-contract (stx-transfer? creator-amount tx-sender (get creator launch))))
+        )
+        true
+      )
+      
+      ;; Mark as finalized
+      (map-set launches launch-id
+        (merge launch {
+          is-finalized: true,
+          is-successful: met-soft-cap
+        })
+      )
+      
+      (print {event: "launch-finalized", platform: "memestack", launch-id: launch-id, successful: met-soft-cap})
+      (ok met-soft-cap)
+    )
   )
 )
 
@@ -285,23 +316,29 @@
 (define-public (claim-tokens (launch-id uint))
   (let
     (
-      (launch (unwrap! (map-get? launches launch-id) err-not-found))
       (contribution (unwrap! (map-get? user-contributions {launch-id: launch-id, user: tx-sender}) err-not-found))
+      (claimed (get claimed contribution))
     )
+    ;; Fast-fail: check if already claimed first (cheapest check)
+    (asserts! (not claimed) err-already-claimed)
     
-    ;; Validations
-    (asserts! (get is-finalized launch) err-launch-not-ended)
-    (asserts! (get is-successful launch) err-soft-cap-not-met)
-    (asserts! (not (get claimed contribution)) err-already-claimed)
+    (let
+      (
+        (launch (unwrap! (map-get? launches launch-id) err-not-found))
+      )
+      ;; Remaining validations
+      (asserts! (get is-finalized launch) err-launch-not-ended)
+      (asserts! (get is-successful launch) err-soft-cap-not-met)
     
-    ;; Mark as claimed
-    (map-set user-contributions
-      {launch-id: launch-id, user: tx-sender}
-      (merge contribution {claimed: true})
+      ;; Mark as claimed
+      (map-set user-contributions
+        {launch-id: launch-id, user: tx-sender}
+        (merge contribution {claimed: true})
+      )
+      
+      (print {event: "tokens-claimed", platform: "memestack", launch-id: launch-id, user: tx-sender, amount: (get tokens-allocated contribution)})
+      (ok (get tokens-allocated contribution))
     )
-    
-    (print {event: "tokens-claimed", launch-id: launch-id, user: tx-sender, amount: (get tokens-allocated contribution)})
-    (ok (get tokens-allocated contribution))
   )
 )
 
@@ -309,27 +346,34 @@
 (define-public (request-refund (launch-id uint))
   (let
     (
-      (launch (unwrap! (map-get? launches launch-id) err-not-found))
       (contribution (unwrap! (map-get? user-contributions {launch-id: launch-id, user: tx-sender}) err-not-found))
-      (refund-address tx-sender)
+      (claimed (get claimed contribution))
+      (stx-contributed (get stx-contributed contribution))
     )
+    ;; Fast-fail: check if already claimed/refunded first (cheapest check)
+    (asserts! (not claimed) err-already-claimed)
     
-    ;; Validations
-    (asserts! (get is-finalized launch) err-launch-not-ended)
-    (asserts! (not (get is-successful launch)) err-no-refund)
-    (asserts! (not (get claimed contribution)) err-already-claimed)
+    (let
+      (
+        (launch (unwrap! (map-get? launches launch-id) err-not-found))
+        (refund-address tx-sender)
+      )
+      ;; Remaining validations
+      (asserts! (get is-finalized launch) err-launch-not-ended)
+      (asserts! (not (get is-successful launch)) err-no-refund)
     
-    ;; Refund STX
-    (try! (as-contract (stx-transfer? (get stx-contributed contribution) tx-sender refund-address)))
-    
-    ;; Mark as claimed (refunded)
-    (map-set user-contributions
-      {launch-id: launch-id, user: tx-sender}
-      (merge contribution {claimed: true})
+      ;; Refund STX
+      (try! (as-contract (stx-transfer? stx-contributed tx-sender refund-address)))
+      
+      ;; Mark as claimed (refunded)
+      (map-set user-contributions
+        {launch-id: launch-id, user: tx-sender}
+        (merge contribution {claimed: true})
+      )
+      
+      (print {event: "refund-processed", platform: "memestack", launch-id: launch-id, user: tx-sender, amount: stx-contributed})
+      (ok stx-contributed)
     )
-    
-    (print {event: "refund-processed", launch-id: launch-id, user: tx-sender, amount: (get stx-contributed contribution)})
-    (ok (get stx-contributed contribution))
   )
 )
 
@@ -367,7 +411,7 @@
   (begin
     (asserts! (is-eq tx-sender contract-owner) err-owner-only)
     (var-set contract-paused paused)
-    (print {event: "contract-paused", paused: paused})
+    (print {event: "contract-paused", platform: "memestack", paused: paused})
     (ok true)
   )
 )
