@@ -50,5 +50,8 @@ build
 *.temp
 .tmp/
 
+# Shell scripts (deployment helpers are kept)
+*.sh
+
 # Documentation (generated)
 *.md
