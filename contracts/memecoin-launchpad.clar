@@ -71,6 +71,14 @@
 )
 
 ;; Read-only functions
+(define-read-only (get-platform-info)
+  {
+    name: platform-name,
+    version: "2.0",
+    description: "Fair launch protocol for memecoins on Stacks"
+  }
+)
+
 (define-read-only (get-launch (launch-id uint))
   (map-get? launches launch-id)
 )
