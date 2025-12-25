@@ -18,7 +18,7 @@ describe("Memestack Integration Tests", () => {
           Cl.stringAscii("PEPE"),
           Cl.stringAscii("PEPE"),
           Cl.stringUtf8("https://pepe.meme"),
-          Cl.uint(1000000000000), // 1 trillion tokens
+        Cl.uint(2000000000000), // 2 trillion tokens (increased to allow more purchases)
           Cl.uint(100), // price per token (100 micro-STX per million tokens)
           Cl.uint(100000000), // soft cap (100 STX)
           Cl.uint(500000000), // hard cap (500 STX)
@@ -86,26 +86,19 @@ describe("Memestack Integration Tests", () => {
         [Cl.uint(1)],
         wallet1
       );
-      expect(launchStats.result).toBeSome(Cl.tuple({
+      expect(launchStats.result).toBeOk(Cl.tuple({
         "total-raised": Cl.uint(110000000), // 110 STX (50+50+10)
         "tokens-sold": Cl.uint(1100000000000),
         "is-finalized": Cl.bool(true),
         "is-successful": Cl.bool(true),
-        "is-active": Cl.bool(false)
+        "is-active": Cl.bool(false),
+        "progress-bps": Cl.uint(2200) // 110/500 * 10000 = 2200 bps (22%)
       }));
 
-      // Step 7: Deploy token contract (simulated - in real deployment this would be done separately)
-      // For testing, we'll register the token with the factory
-      const registerResult = simnet.callPublicFn(
-        "token-factory",
-        "register-token",
-        [
-          Cl.uint(1),
-          Cl.contractPrincipal(deployer, "memecoin-token")
-        ],
-        wallet1
-      );
-      expect(registerResult.result).toBeOk(Cl.bool(true));
+      // Step 7: Token deployment would happen here
+      // Note: Token factory registration requires calling from launchpad contract,
+      // which is not easily testable in this context. The token factory is tested
+      // separately in the Token Factory Integration tests below.
 
       // Step 8: Claim tokens
       const claim1 = simnet.callPublicFn(
@@ -131,8 +124,13 @@ describe("Memestack Integration Tests", () => {
         [Cl.uint(1), Cl.standardPrincipal(wallet2)],
         wallet1
       );
-      const contrib1Data = contribution1.result as any;
-      expect(contrib1Data.value.value.claimed.value).toBe(true);
+      expect(contribution1.result).toBeSome(
+        Cl.tuple({
+          "stx-contributed": Cl.uint(50000000),
+          "tokens-allocated": Cl.uint(500000000000),
+          "claimed": Cl.bool(true)
+        })
+      );
     });
 
     it("handles failed launch with refunds correctly", () => {
@@ -177,7 +175,7 @@ describe("Memestack Integration Tests", () => {
       expect(finalizeResult.result).toBeOk(Cl.bool(false)); // Returns false because launch failed
 
       // Get wallet2's STX balance before refund
-      const balanceBefore = simnet.getAssetsMap().get("STX")?.get(wallet2) || 0;
+      const balanceBefore: bigint = simnet.getAssetsMap().get("STX")?.get(wallet2) || 0n;
 
       // Request refund
       const refundResult = simnet.callPublicFn(
@@ -189,8 +187,8 @@ describe("Memestack Integration Tests", () => {
       expect(refundResult.result).toBeOk(Cl.uint(50000000));
 
       // Verify STX was refunded
-      const balanceAfter = simnet.getAssetsMap().get("STX")?.get(wallet2) || 0;
-      expect(balanceAfter).toBe(balanceBefore + 50000000);
+      const balanceAfter: bigint = simnet.getAssetsMap().get("STX")?.get(wallet2) || 0n;
+      expect(balanceAfter).toBe(balanceBefore + 50000000n);
 
       // Try to claim tokens - should fail since launch unsuccessful
       const claimResult = simnet.callPublicFn(
@@ -305,8 +303,8 @@ describe("Memestack Integration Tests", () => {
       simnet.mineEmptyBlocks(200);
 
       // Get creator's balance before finalize
-      const creatorBalanceBefore = simnet.getAssetsMap().get("STX")?.get(wallet1) || 0;
-      const platformBalanceBefore = simnet.getAssetsMap().get("STX")?.get(deployer) || 0;
+      const creatorBalanceBefore: bigint = simnet.getAssetsMap().get("STX")?.get(wallet1) || 0n;
+      const platformBalanceBefore: bigint = simnet.getAssetsMap().get("STX")?.get(deployer) || 0n;
 
       // Finalize
       simnet.callPublicFn(
@@ -317,17 +315,17 @@ describe("Memestack Integration Tests", () => {
       );
 
       // Get balances after
-      const creatorBalanceAfter = simnet.getAssetsMap().get("STX")?.get(wallet1) || 0;
-      const platformBalanceAfter = simnet.getAssetsMap().get("STX")?.get(deployer) || 0;
+      const creatorBalanceAfter: bigint = simnet.getAssetsMap().get("STX")?.get(wallet1) || 0n;
+      const platformBalanceAfter: bigint = simnet.getAssetsMap().get("STX")?.get(deployer) || 0n;
 
       // Calculate expected amounts
-      const totalRaised = 100000000; // 100 STX
-      const platformFee = totalRaised * 200 / 10000; // 2% = 2 STX
+      const totalRaised = 100000000n; // 100 STX
+      const platformFee = totalRaised * 200n / 10000n; // 2% = 2 STX
       const creatorAmount = totalRaised - platformFee; // 98 STX
 
       // Verify distributions
-      expect(Number(creatorBalanceAfter - creatorBalanceBefore)).toBe(creatorAmount);
-      expect(Number(platformBalanceAfter - platformBalanceBefore)).toBe(platformFee);
+      expect(Number(creatorBalanceAfter - creatorBalanceBefore)).toBe(Number(creatorAmount));
+      expect(Number(platformBalanceAfter - platformBalanceBefore)).toBe(Number(platformFee));
     });
   });
 
