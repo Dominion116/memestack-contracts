@@ -2,7 +2,7 @@
 id: 0
 name: Testnet deployment
 network: testnet
-stacks-node: "https://stacks-node-api.testnet.stacks.co"
+stacks-node: "https://api.testnet.hiro.so"
 bitcoin-node: "http://blockstack:blockstacksystem@bitcoind.testnet.stacks.co:18332"
 plan:
   batches:
@@ -10,28 +10,28 @@ plan:
       transactions:
         - contract-publish:
             contract-name: memecoin-launchpad
-            expected-sender: ST2Y2GBAH4VMDTQ22W2S3ZGRZYX0XXVXBEMA8WHGT
+            expected-sender: ST30VGN68PSGVWGNMD0HH2WQMM5T486EK3WBNTHCY
             cost: 134000
             path: contracts/memecoin-launchpad.clar
             anchor-block-only: true
             clarity-version: 2
         - contract-publish:
             contract-name: sip-010-trait
-            expected-sender: ST2Y2GBAH4VMDTQ22W2S3ZGRZYX0XXVXBEMA8WHGT
+            expected-sender: ST30VGN68PSGVWGNMD0HH2WQMM5T486EK3WBNTHCY
             cost: 7410
             path: contracts/sip-010-trait.clar
             anchor-block-only: true
             clarity-version: 2
         - contract-publish:
             contract-name: memecoin-token
-            expected-sender: ST2Y2GBAH4VMDTQ22W2S3ZGRZYX0XXVXBEMA8WHGT
+            expected-sender: ST30VGN68PSGVWGNMD0HH2WQMM5T486EK3WBNTHCY
             cost: 30820
             path: contracts/memecoin-token.clar
             anchor-block-only: true
             clarity-version: 2
         - contract-publish:
             contract-name: token-factory
-            expected-sender: ST2Y2GBAH4VMDTQ22W2S3ZGRZYX0XXVXBEMA8WHGT
+            expected-sender: ST30VGN68PSGVWGNMD0HH2WQMM5T486EK3WBNTHCY
             cost: 42090
             path: contracts/token-factory.clar
             anchor-block-only: true
