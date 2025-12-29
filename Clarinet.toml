@@ -6,11 +6,6 @@ telemetry = false
 cache_dir = "./.cache"
 requirements = []
 
-[contracts.memecoin-launchpad]
-path = "contracts/memecoin-launchpad.clar"
-clarity_version = 2
-epoch = 2.5
-
 [contracts.memecoin-launchpad-v2]
 path = "contracts/memecoin-launchpad-v2.clar"
 clarity_version = 2
@@ -21,18 +16,8 @@ path = "contracts/sip-010-trait.clar"
 clarity_version = 2
 epoch = 2.5
 
-[contracts.token-factory]
-path = "contracts/token-factory.clar"
-clarity_version = 2
-epoch = 2.5
-
 [contracts.token-factory-v2]
 path = "contracts/token-factory-v2.clar"
-clarity_version = 2
-epoch = 2.5
-
-[contracts.memecoin-token]
-path = "contracts/memecoin-token.clar"
 clarity_version = 2
 epoch = 2.5
 
