@@ -1,0 +1,39 @@
+---
+id: 0
+name: Mainnet deployment
+network: mainnet
+stacks-node: "https://api.hiro.so"
+bitcoin-node: "http://blockstack:blockstacksystem@bitcoin.blockstack.com:8332"
+plan:
+  batches:
+    - id: 0
+      transactions:
+        - contract-publish:
+            contract-name: memecoin-launchpad
+            expected-sender: SP30VGN68PSGVWGNMD0HH2WQMM5T486EK3YGP7Z3Y
+            cost: 134000
+            path: contracts/memecoin-launchpad.clar
+            anchor-block-only: true
+            clarity-version: 2
+        - contract-publish:
+            contract-name: sip-010-trait
+            expected-sender: SP30VGN68PSGVWGNMD0HH2WQMM5T486EK3YGP7Z3Y
+            cost: 7410
+            path: contracts/sip-010-trait.clar
+            anchor-block-only: true
+            clarity-version: 2
+        - contract-publish:
+            contract-name: memecoin-token
+            expected-sender: SP30VGN68PSGVWGNMD0HH2WQMM5T486EK3YGP7Z3Y
+            cost: 30820
+            path: contracts/memecoin-token.clar
+            anchor-block-only: true
+            clarity-version: 2
+        - contract-publish:
+            contract-name: token-factory
+            expected-sender: SP30VGN68PSGVWGNMD0HH2WQMM5T486EK3YGP7Z3Y
+            cost: 42090
+            path: contracts/token-factory.clar
+            anchor-block-only: true
+            clarity-version: 2
+      epoch: "2.5"
