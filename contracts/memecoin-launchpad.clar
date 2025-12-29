@@ -21,6 +21,9 @@
 (define-constant err-no-refund (err u113))
 (define-constant err-calculation-overflow (err u114))
 (define-constant err-contract-paused (err u115))
+(define-constant err-launch-cancelled (err u116))
+(define-constant err-launch-already-started (err u117))
+(define-constant err-has-contributions (err u118))
 
 ;; Platform fee (2% in basis points)
 (define-constant platform-fee-bps u200)
@@ -57,6 +60,7 @@
     tokens-sold: uint,
     is-finalized: bool,
     is-successful: bool,
+    is-cancelled: bool,
     token-contract: (optional principal)
   }
 )
@@ -131,9 +135,18 @@
       ),
       is-active: (is-launch-active launch-id),
       is-finalized: (get is-finalized launch),
-      is-successful: (get is-successful launch)
+      is-successful: (get is-successful launch),
+      is-cancelled: (get is-cancelled launch)
     })
     err-not-found
+  )
+)
+
+(define-read-only (is-launch-cancelled (launch-id uint))
+  (match (map-get? launches launch-id)
+    launch
+    (get is-cancelled launch)
+    false
   )
 )
 
@@ -187,6 +200,7 @@
         tokens-sold: u0,
         is-finalized: false,
         is-successful: false,
+        is-cancelled: false,
         token-contract: none
       }
     )
@@ -194,6 +208,34 @@
     (var-set launch-counter launch-id)
     (print {event: "launch-created", platform: "memestack", launch-id: launch-id, creator: tx-sender})
     (ok launch-id)
+  )
+)
+
+;; Cancel a launch before it starts or before contributions are made
+(define-public (cancel-launch (launch-id uint))
+  (let
+    (
+      (launch (unwrap! (map-get? launches launch-id) err-not-found))
+    )
+    ;; Only creator can cancel
+    (asserts! (is-eq tx-sender (get creator launch)) err-unauthorized)
+    
+    ;; Cannot cancel if already finalized
+    (asserts! (not (get is-finalized launch)) err-already-launched)
+    
+    ;; Cannot cancel if launch has already started
+    (asserts! (< block-height (get start-block launch)) err-launch-already-started)
+    
+    ;; Cannot cancel if there are already contributions
+    (asserts! (is-eq (get total-raised launch) u0) err-has-contributions)
+    
+    ;; Mark as cancelled
+    (map-set launches launch-id
+      (merge launch {is-cancelled: true})
+    )
+    
+    (print {event: "launch-cancelled", platform: "memestack", launch-id: launch-id, creator: tx-sender})
+    (ok true)
   )
 )
 
@@ -220,6 +262,7 @@
     
     ;; Fast-fail validations (cheapest first)
     (asserts! (not (var-get contract-paused)) err-contract-paused)
+    (asserts! (not (get is-cancelled launch)) err-launch-cancelled)
     (asserts! (>= stx-amount min-purchase) err-min-purchase)
     (asserts! (<= stx-amount max-stx-for-calculation) err-calculation-overflow)
     

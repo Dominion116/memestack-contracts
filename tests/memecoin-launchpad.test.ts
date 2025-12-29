@@ -240,6 +240,7 @@ describe("Memecoin Launchpad Tests", () => {
       "is-active": Cl.bool(false),
       "is-finalized": Cl.bool(true),
       "is-successful": Cl.bool(true),
+      "is-cancelled": Cl.bool(false),
     }));
   });
 

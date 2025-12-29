@@ -92,6 +92,7 @@ describe("Memestack Integration Tests", () => {
         "is-finalized": Cl.bool(true),
         "is-successful": Cl.bool(true),
         "is-active": Cl.bool(false),
+        "is-cancelled": Cl.bool(false),
         "progress-bps": Cl.uint(2200) // 110/500 * 10000 = 2200 bps (22%)
       }));
 
@@ -623,6 +624,7 @@ describe("Memestack Integration Tests", () => {
           "tokens-sold": Cl.uint(0),
           "is-finalized": Cl.bool(false),
           "is-successful": Cl.bool(false),
+          "is-cancelled": Cl.bool(false),
           "token-contract": Cl.none()
         })
       );
@@ -651,6 +653,7 @@ describe("Memestack Integration Tests", () => {
           "tokens-sold": Cl.uint(0),
           "is-finalized": Cl.bool(false),
           "is-successful": Cl.bool(false),
+          "is-cancelled": Cl.bool(false),
           "token-contract": Cl.none()
         })
       );
@@ -862,6 +865,7 @@ describe("Memestack Integration Tests", () => {
         "is-finalized": Cl.bool(false),
         "is-successful": Cl.bool(false),
         "is-active": Cl.bool(true),
+        "is-cancelled": Cl.bool(false),
         "progress-bps": Cl.uint(710) // 35.5/500 * 10000 = 710 bps (7.1%)
       }));
     });
@@ -1020,6 +1024,7 @@ describe("Memestack Integration Tests", () => {
         "is-finalized": Cl.bool(false),
         "is-successful": Cl.bool(false),
         "is-active": Cl.bool(true),
+        "is-cancelled": Cl.bool(false),
         "progress-bps": Cl.uint(0) // 0%
       }));
 
@@ -1043,6 +1048,7 @@ describe("Memestack Integration Tests", () => {
         "is-finalized": Cl.bool(false),
         "is-successful": Cl.bool(false),
         "is-active": Cl.bool(true),
+        "is-cancelled": Cl.bool(false),
         "progress-bps": Cl.uint(2500) // 25%
       }));
 
@@ -1066,6 +1072,7 @@ describe("Memestack Integration Tests", () => {
         "is-finalized": Cl.bool(false),
         "is-successful": Cl.bool(false),
         "is-active": Cl.bool(true),
+        "is-cancelled": Cl.bool(false),
         "progress-bps": Cl.uint(5000) // 50%
       }));
     });
@@ -1102,6 +1109,7 @@ describe("Memestack Integration Tests", () => {
         "is-finalized": Cl.bool(false),
         "is-successful": Cl.bool(false),
         "is-active": Cl.bool(false),
+        "is-cancelled": Cl.bool(false),
         "progress-bps": Cl.uint(0)
       }));
 
@@ -1150,6 +1158,7 @@ describe("Memestack Integration Tests", () => {
         "is-finalized": Cl.bool(true),
         "is-successful": Cl.bool(true),
         "is-active": Cl.bool(false),
+        "is-cancelled": Cl.bool(false),
         "progress-bps": Cl.uint(1000) // 10%
       }));
     });
