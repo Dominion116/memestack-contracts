@@ -9,51 +9,30 @@ plan:
     - id: 0
       transactions:
         - contract-publish:
-            contract-name: memecoin-launchpad
-            expected-sender: SP30VGN68PSGVWGNMD0HH2WQMM5T486EK3YGP7Z3Y
-            cost: 148170
-            path: contracts/memecoin-launchpad.clar
-            anchor-block-only: true
-            clarity-version: 2
-        - contract-publish:
             contract-name: memecoin-launchpad-v2
             expected-sender: SP30VGN68PSGVWGNMD0HH2WQMM5T486EK3YGP7Z3Y
-            cost: 148170
+            cost: 156225684
             path: contracts/memecoin-launchpad-v2.clar
             anchor-block-only: true
             clarity-version: 2
         - contract-publish:
             contract-name: sip-010-trait
             expected-sender: SP30VGN68PSGVWGNMD0HH2WQMM5T486EK3YGP7Z3Y
-            cost: 7410
+            cost: 155795646
             path: contracts/sip-010-trait.clar
-            anchor-block-only: true
-            clarity-version: 2
-        - contract-publish:
-            contract-name: memecoin-token
-            expected-sender: SP30VGN68PSGVWGNMD0HH2WQMM5T486EK3YGP7Z3Y
-            cost: 30820
-            path: contracts/memecoin-token.clar
             anchor-block-only: true
             clarity-version: 2
         - contract-publish:
             contract-name: memecoin-token-v2
             expected-sender: SP30VGN68PSGVWGNMD0HH2WQMM5T486EK3YGP7Z3Y
-            cost: 30820
+            cost: 155866249
             path: contracts/memecoin-token-v2.clar
-            anchor-block-only: true
-            clarity-version: 2
-        - contract-publish:
-            contract-name: token-factory
-            expected-sender: SP30VGN68PSGVWGNMD0HH2WQMM5T486EK3YGP7Z3Y
-            cost: 42090
-            path: contracts/token-factory.clar
             anchor-block-only: true
             clarity-version: 2
         - contract-publish:
             contract-name: token-factory-v2
             expected-sender: SP30VGN68PSGVWGNMD0HH2WQMM5T486EK3YGP7Z3Y
-            cost: 42090
+            cost: 78316730
             path: contracts/token-factory-v2.clar
             anchor-block-only: true
             clarity-version: 2

@@ -60,11 +60,6 @@ plan:
     - id: 0
       transactions:
         - emulated-contract-publish:
-            contract-name: memecoin-launchpad
-            emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
-            path: contracts/memecoin-launchpad.clar
-            clarity-version: 2
-        - emulated-contract-publish:
             contract-name: memecoin-launchpad-v2
             emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
             path: contracts/memecoin-launchpad-v2.clar
@@ -75,19 +70,9 @@ plan:
             path: contracts/sip-010-trait.clar
             clarity-version: 2
         - emulated-contract-publish:
-            contract-name: memecoin-token
-            emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
-            path: contracts/memecoin-token.clar
-            clarity-version: 2
-        - emulated-contract-publish:
             contract-name: memecoin-token-v2
             emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
             path: contracts/memecoin-token-v2.clar
-            clarity-version: 2
-        - emulated-contract-publish:
-            contract-name: token-factory
-            emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
-            path: contracts/token-factory.clar
             clarity-version: 2
         - emulated-contract-publish:
             contract-name: token-factory-v2
