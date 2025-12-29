@@ -1127,6 +1127,7 @@ describe("Memestack Integration Tests", () => {
         "is-finalized": Cl.bool(false),
         "is-successful": Cl.bool(false),
         "is-active": Cl.bool(true),
+        "is-cancelled": Cl.bool(false),
         "progress-bps": Cl.uint(0)
       }));
 
